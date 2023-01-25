@@ -118,62 +118,60 @@ class _GridState extends State<Grid> {
             nodes.add(IconButton(
                 key: _keys[element.uID],
                 onPressed: () {
-                  int player1RowLength() {
-                    List<Node> list = [];
-                    for (Node node in widget.gridData.nodeData) {
-                      if (node.isForPlayer1) {
-                        list.add(node);
-                      } else {
-                        return list.length;
+                  List<int> allowedMoves(int uID) {
+                    int player1RowLength() {
+                      List<Node> list = [];
+                      for (Node node in widget.gridData.nodeData) {
+                        if (node.isForPlayer1) {
+                          list.add(node);
+                        } else {
+                          return list.length;
+                        }
                       }
+                      return list.length;
                     }
-                    return list.length;
-                  }
 
-                  bool elementOnLeft() {
-                    if (element.uID == 0) {
-                      return true;
-                    }
-                    if (widget
-                            .gridData.nodeData[element.uID - 1].isForPlayer1 !=
-                        element.isForPlayer1) {
-                      return true;
-                    }
-                    return false;
-                  }
-
-                  bool elementOnRight() {
-                    if (element.uID == 0) {
+                    bool elementOnLeft() {
+                      if (uID == 0) {
+                        return true;
+                      }
+                      if (widget.gridData.nodeData[uID - 1].isForPlayer1 !=
+                          element.isForPlayer1) {
+                        return true;
+                      }
                       return false;
                     }
-                    if (element.uID == widget.gridData.nodeData.last.uID) {
-                      return true;
-                    }
-                    if (widget
-                            .gridData.nodeData[element.uID + 1].isForPlayer1 !=
-                        element.isForPlayer1) {
-                      return true;
-                    }
-                    return false;
-                  }
 
-                  bool elementOnTopRow() {
-                    if (element.uID <= (player1RowLength() * 2)) {
-                      return true;
+                    bool elementOnRight() {
+                      if (uID == 0) {
+                        return false;
+                      }
+                      if (uID == widget.gridData.nodeData.last.uID) {
+                        return true;
+                      }
+                      if (widget.gridData.nodeData[uID + 1].isForPlayer1 !=
+                          element.isForPlayer1) {
+                        return true;
+                      }
+                      return false;
                     }
-                    return false;
-                  }
 
-                  bool elementOnBottomRow() {
-                    if (element.uID >=
-                        widget.gridData.nodeData.last.uID -
-                            (player1RowLength() * 2)) {
-                      return true;
+                    bool elementOnTopRow() {
+                      if (uID <= (player1RowLength() * 2)) {
+                        return true;
+                      }
+                      return false;
                     }
-                    return false;
-                  }
 
-                  List<int> allowedMoves(int uID) {
+                    bool elementOnBottomRow() {
+                      if (uID >=
+                          widget.gridData.nodeData.last.uID -
+                              (player1RowLength() * 2)) {
+                        return true;
+                      }
+                      return false;
+                    }
+
                     List<int> moves = [];
                     if (elementOnLeft()) {
                       moves.add(uID + 1);
@@ -198,12 +196,12 @@ class _GridState extends State<Grid> {
                       return moves;
                     }
                     if (!elementOnBottomRow() && !elementOnTopRow()) {
-                      moves.add(element.uID + (player1RowLength() * 2 + 1));
-                      moves.add(element.uID - (player1RowLength() * 2 + 1));
+                      moves.add(uID + (player1RowLength() * 2 + 1));
+                      moves.add(uID - (player1RowLength() * 2 + 1));
                     }
                     if (!elementOnLeft() && !elementOnRight()) {
-                      moves.add(element.uID + 1);
-                      moves.add(element.uID - 1);
+                      moves.add(uID - 1);
+                      moves.add(uID + 1);
                     }
                     return moves;
                   }
@@ -224,6 +222,8 @@ class _GridState extends State<Grid> {
                     int startingPointID = widget.gridData.nodeData
                         .firstWhere((element) => element.isHighlighted)
                         .uID;
+                    print(startingPointID);
+                    print(allowedMoves(startingPointID));
                     if (element.connectedTo
                         .any((element) => element == startingPointID)) {
                       return;

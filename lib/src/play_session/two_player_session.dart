@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../ads/ads_controller.dart';
 import '../games_services/grid.dart';
+import '../games_services/new_win_con.dart';
 import '../in_app_purchase/in_app_purchase.dart';
 import '../style/confetti.dart';
 import '../style/palette.dart';
@@ -36,8 +37,7 @@ class _TwoPlayerSessionScreenState extends State<TwoPlayerSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _duringCelebration = context.watch<GridData>().player2Win ||
-        context.watch<GridData>().player1Win;
+    print(context.watch<GridData>().player1Win);
     final palette = context.watch<Palette>();
     MediaQueryData media = MediaQuery.of(context);
     // return MultiProvider(
@@ -127,33 +127,117 @@ class _TwoPlayerSessionScreenState extends State<TwoPlayerSessionScreen> {
                             rows:
                                 context.watch<GridData>().nodeData.last.row + 1,
                             gridData: GridData(
-                                isStartingPointSelection: context
-                                    .watch<GridData>()
-                                    .isStartingPointSelection,
-                                nodeData: context.watch<GridData>().nodeData,
-                                isPlayer1Turn:
-                                    context.watch<GridData>().isPlayer1Turn,
-                                player1Win:
-                                    context.watch<GridData>().player1Win,
-                                player2Win:
-                                    context.watch<GridData>().player2Win,
-                                player1Path:
-                                    context.watch<GridData>().player1Path,
-                                player2Path:
-                                    context.watch<GridData>().player2Path),
+                              isStartingPointSelection: context
+                                  .watch<GridData>()
+                                  .isStartingPointSelection,
+                              nodeData: context.watch<GridData>().nodeData,
+                              isPlayer1Turn:
+                                  context.watch<GridData>().isPlayer1Turn,
+                              player1Win:
+                                  WinCon.player1Win(context.watch<GridData>()),
+                              player2Win:
+                                  WinCon.player2Win(context.watch<GridData>()),
+                              player1Path:
+                                  context.watch<GridData>().player1Path,
+                              player2Path:
+                                  context.watch<GridData>().player2Path,
+                              player1NodePath:
+                                  context.watch<GridData>().player1NodePath,
+                              player2NodePath:
+                                  context.watch<GridData>().player2NodePath,
+                              player1Lines:
+                                  context.watch<GridData>().player1Lines,
+                              player2Lines:
+                                  context.watch<GridData>().player2Lines,
+                            ),
                           ),
                   ),
                   const Spacer(),
+                  Visibility(
+                    visible: context.watch<GridData>().player1Win ||
+                        context.watch<GridData>().player2Win,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ButtonStyle(
+                            backgroundColor:
+                                MaterialStateProperty.all(palette.trueWhite),
+                            textStyle: MaterialStateProperty.all(
+                              TextStyle(color: palette.darkPen),
+                            ),
+                          ),
+                          onPressed: () {
+                            GridData newGrid = Grid.nodeMapConstructor(context
+                                .read<GridData>()
+                                .nodeData
+                                .firstWhere((element) => !element.isForPlayer1)
+                                .uID);
+                            context.read<GridData>().updateNodeData(newGrid);
+                          },
+                          child: Text(
+                            'New Game',
+                            style: TextStyle(color: palette.darkPen),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () => GoRouter.of(context).pop(),
-                        child: const Text('Back'),
+                        style: ButtonStyle(
+                            backgroundColor:
+                                MaterialStateProperty.all(palette.redPen)),
+                        onPressed: () {
+                          showModalBottomSheet<Widget>(
+                              context: context,
+                              builder: (context) {
+                                return Column(
+                                  children: [
+                                    ElevatedButton(
+                                        onPressed: () {
+                                          GridData newGrid =
+                                              Grid.nodeMapConstructor(context
+                                                  .read<GridData>()
+                                                  .nodeData
+                                                  .firstWhere((element) =>
+                                                      !element.isForPlayer1)
+                                                  .uID);
+                                          context
+                                              .read<GridData>()
+                                              .updateNodeData(newGrid);
+                                          Navigator.pop(context);
+                                        },
+                                        child: Text("Reset Board")),
+                                    ElevatedButton(
+                                        onPressed: () {
+                                          GridData newGrid =
+                                              Grid.nodeMapConstructor(context
+                                                  .read<GridData>()
+                                                  .nodeData
+                                                  .firstWhere((element) =>
+                                                      !element.isForPlayer1)
+                                                  .uID);
+                                          context
+                                              .read<GridData>()
+                                              .updateNodeData(newGrid);
+                                          Navigator.pop(context);
+                                          Navigator.pop(context);
+                                        },
+                                        child: Text("Exit Game")),
+                                  ],
+                                );
+                              });
+                        },
+                        child: const Text('Options'),
                       ),
                     ),
                   ),
+                  const Spacer(),
                 ],
               ),
             ),
@@ -162,7 +246,7 @@ class _TwoPlayerSessionScreenState extends State<TwoPlayerSessionScreen> {
                 visible: _duringCelebration,
                 child: IgnorePointer(
                   child: Confetti(
-                    isStopped: !_duringCelebration,
+                    isStopped: _duringCelebration,
                   ),
                 ),
               ),
@@ -176,7 +260,7 @@ class _TwoPlayerSessionScreenState extends State<TwoPlayerSessionScreen> {
   @override
   void initState() {
     super.initState();
-
+    // checkWin();
     _startOfPlay = DateTime.now();
 
     // Preload ad for the win screen.
@@ -188,49 +272,71 @@ class _TwoPlayerSessionScreenState extends State<TwoPlayerSessionScreen> {
     }
   }
 
-  // Future<void> _playerWon() async {
-  //   _log.info('Level ${widget.level.number} won');
-  //
-  //   final score = Score(
-  //     widget.level.number,
-  //     widget.level.difficulty,
-  //     DateTime.now().difference(_startOfPlay),
-  //   );
-  //
-  //   final playerProgress = context.read<PlayerProgress>();
-  //   playerProgress.setLevelReached(widget.level.number);
-  //
-  //   // Let the player see the game just after winning for a bit.
-  //   await Future<void>.delayed(_preCelebrationDuration);
-  //   if (!mounted) return;
-  //
-  //   setState(() {
-  //     _duringCelebration = true;
-  //   });
-  //
-  //   final audioController = context.read<AudioController>();
-  //   audioController.playSfx(SfxType.congrats);
-  //
-  //   final gamesServicesController = context.read<GamesServicesController?>();
-  //   if (gamesServicesController != null) {
-  //     // Award achievement.
-  //     if (widget.level.awardsAchievement) {
-  //       await gamesServicesController.awardAchievement(
-  //         android: widget.level.achievementIdAndroid!,
-  //         iOS: widget.level.achievementIdIOS!,
-  //       );
-  //     }
-  //
-  //     // Send score to leaderboard.
-  //     await gamesServicesController.submitLeaderboardScore(score);
+  // bool checkWin() {
+  //   if (context.watch<GridData>().player1Win ||
+  //       context.watch<GridData>().player2Win) {
+  //     _winnerWinner();
   //   }
-  //
-  //   /// Give the player some time to see the celebration animation.
-  //   await Future<void>.delayed(_celebrationDuration);
-  //   if (!mounted) return;
-  //
-  //   GoRouter.of(context).go('/play/won', extra: {'score': score});
   // }
+
+  Future<void> _playerWon() async {
+    // _log.info('Level ${widget.level.number} won');
+
+    // final score = Score(
+    //   widget.level.number,
+    //   widget.level.difficulty,
+    //   DateTime.now().difference(_startOfPlay),
+    // );
+
+    // final playerProgress = context.read<PlayerProgress>();
+    // playerProgress.setLevelReached(widget.level.number);
+
+    // Let the player see the game just after winning for a bit.
+    await Future<void>.delayed(_preCelebrationDuration);
+    if (!mounted) return;
+
+    setState(() {
+      _duringCelebration = true;
+    });
+    //
+    // final audioController = context.read<AudioController>();
+    // audioController.playSfx(SfxType.congrats);
+    //
+    // final gamesServicesController = context.read<GamesServicesController?>();
+    // if (gamesServicesController != null) {
+    //   // Award achievement.
+    //   if (widget.level.awardsAchievement) {
+    //     await gamesServicesController.awardAchievement(
+    //       android: widget.level.achievementIdAndroid!,
+    //       iOS: widget.level.achievementIdIOS!,
+    //     );
+    //   }
+    //
+    //   // Send score to leaderboard.
+    //   await gamesServicesController.submitLeaderboardScore(score);
+    // }
+
+    /// Give the player some time to see the celebration animation.
+    await Future<void>.delayed(_celebrationDuration);
+    if (!mounted) return;
+
+    GoRouter.of(context).go('/play/won');
+  }
+
+  Future<void> _winnerWinner() async {
+    await Future<void>.delayed(_preCelebrationDuration);
+    if (!mounted) return;
+
+    setState(() {
+      _duringCelebration = true;
+    });
+    await Future<void>.delayed(_celebrationDuration);
+    if (!mounted) return;
+    setState(() {
+      _duringCelebration = false;
+    });
+    // GoRouter.of(context).go('/play/won');
+  }
 }
 
 class GridPainter extends CustomPainter {

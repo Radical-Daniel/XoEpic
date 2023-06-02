@@ -23,6 +23,7 @@ class Grid extends StatefulWidget {
           createdList.add(Node(
               uID: uID,
               row: rowCount,
+              column: c,
               isHighlighted: false,
               isForPlayer1: isForPlayer1,
               connectedTo: [],
@@ -34,6 +35,7 @@ class Grid extends StatefulWidget {
         for (int c = 0; c < minColNum + 1; c++) {
           createdList.add(Node(
               row: rowCount,
+              column: c,
               isHighlighted: false,
               uID: uID,
               isForPlayer1: isForPlayer1,
@@ -43,15 +45,21 @@ class Grid extends StatefulWidget {
         }
         rowCount++;
       }
+      print(createdList.map((e) => e.row));
     }
     return GridData(
-        isStartingPointSelection: true,
-        nodeData: createdList,
-        isPlayer1Turn: true,
-        player1Win: false,
-        player2Win: false,
-        player1Path: [],
-        player2Path: []);
+      isStartingPointSelection: true,
+      nodeData: createdList,
+      isPlayer1Turn: true,
+      player1Win: false,
+      player2Win: false,
+      player1Path: [],
+      player1NodePath: [],
+      player2Path: [],
+      player2NodePath: [],
+      player1Lines: [],
+      player2Lines: [],
+    );
   }
 
   @override
@@ -172,6 +180,72 @@ class _GridState extends State<Grid> {
                       return false;
                     }
 
+                    bool isBlockedRight() {
+                      if (uID < player1RowLength()) {
+                        return false;
+                      }
+                      if (!element.isForPlayer1 && elementOnRight()) {
+                        return false;
+                      }
+                      if (widget.gridData.nodeData[uID - player1RowLength()]
+                          .connectedTo
+                          .contains((uID + player1RowLength()) + 1)) {
+                        return true;
+                      }
+                      return false;
+                    }
+
+                    bool isBlockedLeft() {
+                      if (uID < player1RowLength()) {
+                        return false;
+                      }
+                      if (!element.isForPlayer1 && elementOnLeft()) {
+                        return false;
+                      }
+                      if (widget.gridData.nodeData[uID - player1RowLength() - 1]
+                          .connectedTo
+                          .contains((uID + player1RowLength()))) {
+                        return true;
+                      }
+
+                      return false;
+                    }
+
+                    bool isBlockedBelow() {
+                      if (element.isForPlayer1 && elementOnBottomRow()) {
+                        return false;
+                      }
+                      if (!element.isForPlayer1 && elementOnLeft()) {
+                        return false;
+                      }
+                      if (widget.gridData.nodeData[uID + player1RowLength()]
+                          .connectedTo
+                          .contains((uID + player1RowLength() + 1))) {
+                        return true;
+                      }
+
+                      return false;
+                    }
+
+                    bool isBlockedAbove() {
+                      if (elementOnTopRow()) {
+                        return false;
+                      }
+                      if (!element.isForPlayer1 && elementOnLeft()) {
+                        return false;
+                      }
+                      if (!element.isForPlayer1 && elementOnRight()) {
+                        return false;
+                      }
+
+                      if (widget.gridData.nodeData[uID - player1RowLength()]
+                          .connectedTo
+                          .contains((uID - player1RowLength() - 1))) {
+                        return true;
+                      }
+                      return false;
+                    }
+
                     List<int> moves = [];
                     if (elementOnLeft()) {
                       moves.add(uID + 1);
@@ -193,7 +267,6 @@ class _GridState extends State<Grid> {
                       moves.add(uID - 1);
                       moves.add(uID + (player1RowLength() * 2 + 1));
                       moves.add(uID - (player1RowLength() * 2 + 1));
-                      return moves;
                     }
                     if (!elementOnBottomRow() && !elementOnTopRow()) {
                       moves.add(uID + (player1RowLength() * 2 + 1));
@@ -203,6 +276,21 @@ class _GridState extends State<Grid> {
                       moves.add(uID - 1);
                       moves.add(uID + 1);
                     }
+                    if (isBlockedRight()) {
+                      moves.removeWhere((element) => element == uID + 1);
+                    }
+                    if (isBlockedLeft()) {
+                      moves.removeWhere((element) => element == uID - 1);
+                    }
+                    if (isBlockedBelow()) {
+                      moves.removeWhere((element) =>
+                          element == uID + (player1RowLength() * 2 + 1));
+                    }
+                    if (isBlockedAbove()) {
+                      moves.removeWhere((element) =>
+                          element == uID - (player1RowLength() * 2 + 1));
+                    }
+                    moves = moves.toSet().toList();
                     return moves;
                   }
 
@@ -222,8 +310,6 @@ class _GridState extends State<Grid> {
                     int startingPointID = widget.gridData.nodeData
                         .firstWhere((element) => element.isHighlighted)
                         .uID;
-                    print(startingPointID);
-                    print(allowedMoves(startingPointID));
                     if (element.connectedTo
                         .any((element) => element == startingPointID)) {
                       return;
@@ -237,11 +323,15 @@ class _GridState extends State<Grid> {
                           .add(_getOffset(_keys[startingPointID])!);
                       widget.gridData.player1Path
                           .add(_getOffset(_keys[element.uID])!);
+                      widget.gridData.player1NodePath
+                          .add([startingPointID, element.uID]);
                     } else {
                       widget.gridData.player2Path
                           .add(_getOffset(_keys[startingPointID])!);
                       widget.gridData.player2Path
                           .add(_getOffset(_keys[element.uID])!);
+                      widget.gridData.player2NodePath
+                          .add([startingPointID, element.uID]);
                     }
 
                     element.connectedTo.add(startingPointID);
@@ -279,6 +369,7 @@ class _GridState extends State<Grid> {
 class Node {
   bool isForPlayer1;
   int row;
+  int column;
   bool checked;
   bool isHighlighted;
   List<int> connectedTo = [];
@@ -290,33 +381,47 @@ class Node {
       required this.isForPlayer1,
       required this.connectedTo,
       required this.isHighlighted,
-      required this.uID});
+      required this.uID,
+      required this.column});
 }
 
 class GridData with ChangeNotifier {
   List<Node> nodeData;
   List<Offset> player1Path;
+  List<List<int>> player1NodePath;
   List<Offset> player2Path;
+  List<List<int>> player2NodePath;
+  List<List<int>> player1Lines;
+  List<List<int>> player2Lines;
   bool isPlayer1Turn;
   bool isStartingPointSelection;
   bool player1Win;
   bool player2Win;
-  GridData(
-      {required this.nodeData,
-      required this.isPlayer1Turn,
-      required this.isStartingPointSelection,
-      required this.player1Path,
-      required this.player2Path,
-      required this.player1Win,
-      required this.player2Win});
+  GridData({
+    required this.nodeData,
+    required this.isPlayer1Turn,
+    required this.isStartingPointSelection,
+    required this.player1Path,
+    required this.player1NodePath,
+    required this.player2Path,
+    required this.player2NodePath,
+    required this.player1Win,
+    required this.player2Win,
+    required this.player1Lines,
+    required this.player2Lines,
+  });
   void updateNodeData(GridData gridData) {
     player1Win = gridData.player1Win;
     player2Win = gridData.player2Win;
     isStartingPointSelection = gridData.isStartingPointSelection;
     player1Path = gridData.player1Path;
+    player1NodePath = gridData.player1NodePath;
     player2Path = gridData.player2Path;
+    player2NodePath = gridData.player2NodePath;
     nodeData = gridData.nodeData;
     isPlayer1Turn = gridData.isPlayer1Turn;
+    player1Lines = gridData.player1Lines;
+    player2Lines = gridData.player2Lines;
     notifyListeners();
   }
 }
